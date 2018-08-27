@@ -8,14 +8,14 @@ vhost提供了隔离机制，使得用户可以在同一套rabbitmq服务器上�
 RabbitMQ默认创建了名称为"/"的vhost，这也是大多数情况下默认使用的vhost，应用程序在此vhost中声明交换器、队列和绑定，供业务使用。
 通过rabbitmqctl，可以方便的查看、创建和删除vhost。
 ### 查看vhost  
-rabbitmqctl list_vhosts可以查看所有创建的vhost。
+*rabbitmqctl list_vhosts*可以查看所有创建的vhost。
 ```
 $ rabbitmqctl list_vhosts
 Listing vhosts ...
 /
 ```
 ### 创建vhost  
-rabbitmqctl add_vhost {vhost}
+*rabbitmqctl add_vhost {vhost}*
 ```
 $ rabbitmqctl add_vhost myVhost
 Adding vhost "myVhost" ..
@@ -25,7 +25,7 @@ Listing vhosts ...
 myVhost
 ```
 ### 删除vhost  
-rabbitmqctl delete_vhost {vhost}
+*rabbitmqctl delete_vhost {vhost}*
 ```$xslt
 $ rabbitmqctl delete_vhost myVhost
 Deleting vhost "myVhost" ...
@@ -33,14 +33,14 @@ Deleting vhost "myVhost" ...
 
 ## 用户管理
 ### 创建用户    
-rabbitmqctl add_user {username} {password}
+*rabbitmqctl add_user {username} {password}*
 ```
 $ add_user swaf swaf123
 Adding user "swaf" ...
 
 ```
 ### 查看用户  
-rabbitmqctl list_users
+*rabbitmqctl list_users*
 ```
 $ rabbitmqctl list_users
 Listing users ...
@@ -48,13 +48,13 @@ swaf	[]
 guest	[administrator]  //[]中为用户角色
 ```
 ### 修改用户密码  
-rabbitmqctl change_password {username} {password} 
+*rabbitmqctl change_password {username} {password}* 
 ```
 $ rabbitmqctl change_password swaf swaf456
 Changing password for user "swaf" ...
 ```
 ### 验证用户
-rabbitmqctl authenticate_user {username} {password} 
+*rabbitmqctl authenticate_user {username} {password}* 
 ```
 $ rabbitmqctl authenticate_user swaf swaf456
 Authenticating user "swaf" ...
@@ -65,7 +65,7 @@ Error: failed to authenticate user "swaf"
 user 'swaf' - invalid credentials
 ```
 ### 删除用户  
-rabbitmqctl delete_user {username}
+*rabbitmqctl delete_user {username}*
 ```
 $ rabbitmqctl delete_user swaf
 Deleting user "swaf" ...
