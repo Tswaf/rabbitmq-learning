@@ -39,3 +39,58 @@ amqp-client客户端主要包含以下包：
 使用ConnectionFactory创建出Connection对象，在使用Connection对象创建一个Channel，在Channel上即可完成基本的发送消息，消费消息等AMQP操作；
 发送消息时，可通过BasicProperties设置消息属性；可以通过实现Consumer接口或继承DefaultConsumer类实现一个消费者来消费消息。总之，通过以上对象，
 即可完成基本的消息从生产到消费的全流程。
+
+## 连接到RabbitMQ
+通过ConnectionFactory工厂方法，设置连接属性，生成Connection对象，建立客户端到RabbitMQ的连接。在Connection上创建Channel，建立一个连接通道。
+Channel不是线程安全的，在实际使用中，应该通过Connection为每个线程创建独立的Channel。
+```
+#设置连接属性。未设置时使用默认值:使用默认账号guest连接到localhost到默认vhost "/"
+ConnectionFactory connectionFactory = new ConnectionFactory();
+connectionFactory.setHost("localhost");
+connectionFactory.setPort(5672);
+connectionFactory.setVirtualHost("/");
+connectionFactory.setUsername("guest");
+connectionFactory.setPassword("guest");
+
+#生成Connection & Channel
+Connection connection = connectionFactory.newConnection();
+Channel channel = connection.createChannel();
+```
+也可以通过设置URI的方式来建立连接:
+```
+ConnectionFactory connectionFactory = new ConnectionFactory();
+connectionFactory.setUri("amqp://username:password@hostname:port/vhost");
+Connection connection = connectionFactory.newConnection();
+Channel channel = connection.createChannel();
+```
+Channel接口上定义AMQP协议几乎所有的操作。建立好到RabbitQM到连接后，就可以在Channel对象上执行AMQP的操作，如声明队列、交换器、绑定等。
+
+## 创建&删除exchange、queue和binding
+
+### queue
+1.声明队列。Channel定义来以下方法来声明队列:
+```
+Queue.DeclareOk queueDeclare()
+Queue.DeclareOk queueDeclare(String queue, boolean durable, boolean exclusive, boolean autoDelete,Map<String, Object> arguments)
+
+void queueDeclareNoWait(String queue, boolean durable, boolean exclusive, boolean autoDelete, Map<String, Object> arguments)
+
+Queue.DeclareOk queueDeclarePassive(String queue)
+```
+第一个不带参数的queueDeclare()方法声明一个队列，队列名称有rabbitMQ自动生成，该队列事非持久的、排他的、自动删除的；  
+
+第二个方法声明队列，可以指定用户设定的队列属性和参数，是最常用的方法。其中各个参数含义如下：
+- queue: 队列名称
+- durable: 队列是否持久话。持久化以为着队列可以从RabbitMQ重启中恢复。
+- exclusive: 排他性。排他性的队列只对首次声明它的连接（Connection而不是Channel）可见，并将在连接断开是自动删除队列。排他性的队列被首次声明后，
+其他连接是不允许创建同名队列的，这种类型的队列使用场景很有限。
+- autoDelete: 队列是否自动删除。自动删除的前提是，至少有一个消费者连接到该队列，而后由断开来连接，队列没有任何消费者时，队列被自动删除。
+
+使用queueDeclareNoWait方法声明队列时，不等待服务端到响应，直接返回。这种情况下，声明完队列后立即使用可能引发异常；  
+
+最后一个queueDeclarePassive方法不是真正对声明队列，而只是检查队列是否存在，如果队列存在则正常返回；否则会抛出一个异常，并且执行该操作对Channel不再
+可用，后续应该创建新的Channel对象使用。
+
+### 声明exchange
+
+### 声明binding
