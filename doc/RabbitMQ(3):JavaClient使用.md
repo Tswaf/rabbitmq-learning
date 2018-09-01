@@ -202,7 +202,7 @@ Queue.UnbindOk queueUnbind(String queue, String exchange, String routingKey) thr
 Queue.UnbindOk queueUnbind(String queue, String exchange, String routingKey, Map<String, Object> arguments) throws IOException;
 ```
 #### 交换器与交换器绑定/解绑
-作为RabbitMQ对AMQP的扩展功能，交换器允许和别的交换器绑定起来。这个队列与交换器对绑定在使用上没有太大对不同。可以将交换器E1和E2绑定起来，在将E2和队列
+作为RabbitMQ对AMQP的扩展功能，交换器允许和别的交换器绑定起来。这和队列与交换器对绑定在使用上没有太大对不同。可以将交换器E1和E2绑定起来，在将E2和队列
 Q绑定起来，之后生产者向E1发送消息，消息在E1上被路由到E2，再由E2路由到Q。  
 绑定交换器和其他交换器使用如下方法：
 ```
@@ -224,10 +224,91 @@ void exchangeUnbindNoWait(String destination, String source, String routingKey, 
 这些资源，客户端直接去使用即可，这样便于统一规划，防止客户端随意创建资源造成错误或是资源浪费；在其他一些应用中，可能由客户端自己创建这些资源并使用。总之，
 这取决于应用本身的规划。
 
+
 ## 发送消息
+在channel对象上，使用basicPublish方法，将消息发送到指定的交换器。basicPublish有三个重载方法：
+```
+void basicPublish(String exchange, String routingKey, BasicProperties props, byte[] body) throws IOException;
+void basicPublish(String exchange, String routingKey, boolean mandatory, BasicProperties props, byte[] body) throws IOException;
+void basicPublish(String exchange, String routingKey, boolean mandatory, boolean immediate, BasicProperties props, byte[] body) throws IOException;
+```
+发送消息是，指定的各个参数含义如下：
+- exchange: exchange名称，指定消息发送到哪个交换器
+- routingKey: 消息到路由键
+- mandatory: 该参数决定消息到达exchange后无法路由时到处理方式。指定为true，当消息到达exchange时，如果根据路由键找不到匹配到队列，该消息将被返回给
+客户端；否则，无法路由到消息被直接丢弃。
+- immediate: 该参数设置为true，消息在从exchange路由到队列时，如果队列上消费者，消息将被投递到队列，否则将消息返回给生产者。不过，该参数从RabbitMQ 3.0版本开始已经废弃掉。
+- props: 指定消息到其他属性,如header、deliveryMode、contentType等。
+- body: 消息体
 
 ## 消费消息
+在RabbitMQ中，消费者可以以推模式和拉模式两种方式消费消息，分别对象basicConsume方法和basicGet方法。推模式中，由服务端主动推送消息到消费这，消费者在
+会调方法中处理消息，然后响应服务端；拉模式中，消费者每次主动从队列中拉起单条消息消费，然后响应服务端。
 ### 推模式
+推模式使用basicConsume方法来消费消息，可以看到，RabbitMQ定义了basicConsume方法许多重载版本：
+```
+String basicConsume(String queue, Consumer callback) throws IOException;
+String basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException;
+String basicConsume(String queue, DeliverCallback deliverCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, Consumer callback) throws IOException;
+String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback, CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments, Consumer callback) throws IOException;
+String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments, DeliverCallback deliverCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments, DeliverCallback deliverCallback, CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, Consumer callback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, DeliverCallback deliverCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, DeliverCallback deliverCallback, CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal, boolean exclusive, Map<String, Object> arguments, Consumer callback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal, boolean exclusive, Map<String, Object> arguments, DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal, boolean exclusive, Map<String, Object> arguments, DeliverCallback deliverCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal, boolean exclusive, Map<String, Object> arguments, DeliverCallback deliverCallback, CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException;
+```
+各个参数含义如下：
+- queue: 指定队列名称，即消费哪个队列里的数据。
+- autoAck: 是否自动进行消息确认。设置为true表示自动消息确认，消费者收到消息时，自动向服务端发送ack信号，服务端收到该信号，则认为消息已经被消费，将其从队列中删除。
+设置为false值，需要消费者手动进行ack。
+- consumerTag: 消费者标签，用了区分多个消费者。
+- noLocal: 设置为true，表示不能将同一个Connection中生成者发送的消息传递给这个Connection中的消费者。
+- exclusive: 是否排他。
+- arguments: 其他结构化参数。
+- callback: 消费者会调函数，处理发送过来的消息。
+- cancelCallback: 消费者取消订阅时的回调方法。
+- shutdownSignalCallback: channel或者connection关闭时的回调方法。
+- 其他回调方法...
+
+可见，消费者主要还是定义各个回调方法，然后调用basicConsume方法消费消息。最主要的回调参数还是callback，定了了消费者消费消息的主要流程，可以同实现
+Consumer接口或继承DefaultConsumer类来实现一个Consumer，如:
+```
+String QUEUE_NAME ="";
+boolean autoAck = false;
+channel.basicConsume(QUEUE_NAME,autoAck,"myTag",
+                new DefaultConsumer(channel){
+                    @Override
+                    public void handleDelivery(String consumerTag,
+                                               Envelope envelope,
+                                               AMQP.BasicProperties properties,
+                                               byte[] body) throws IOException{
+                       long deliveryTag = envelope.getDeliveryTag();
+                       process(body,consumerTag,envelope,properties) //消费消息
+                       channel.basicAck(deliveryTag,false);
+                    }
+                });
+```
 ### 拉模式
+拉模式只有basicGet一个方法：
+```
+GetResponse basicGet(String queue, boolean autoAck) throws IOException;
+```
+参数queue指定从哪个队列中读取消息；参数autoAck指定是否自动进行消息确认，设定为fasle时，需要消费者对消息消费后，主动向服务端发送ack消息。
+```
+GetResponse response = channel.basicGet(QUEUE_NAME, false);
+handle(response) //消费消息
+channel.basicAck(response.getEnvelope.getDeliveryTag,false);
+```
 
 ## 一个完整的示例
