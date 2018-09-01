@@ -63,7 +63,7 @@ connectionFactory.setUri("amqp://username:password@hostname:port/vhost");
 Connection connection = connectionFactory.newConnection();
 Channel channel = connection.createChannel();
 ```
-Channel接口上定义AMQP协议几乎所有的操作。建立好到RabbitQM到连接后，就可以在Channel对象上执行AMQP的操作，如声明队列、交换器、绑定等。
+Channel接口上定义AMQP协议几乎所有的操作。建立好到RabbitMQ到连接后，就可以在Channel对象上执行AMQP的操作，如声明队列、交换器、绑定等。
 
 ## 操作exchange、queue和binding
 
@@ -310,5 +310,15 @@ GetResponse response = channel.basicGet(QUEUE_NAME, false);
 handle(response) //消费消息
 channel.basicAck(response.getEnvelope.getDeliveryTag,false);
 ```
+### 拒绝消息
+消费者可以拒绝消费投递过来的消息，使用basicReject拒绝单条消息，使用basicNack可以具体多条消息。basicNack不是AMQP的标准操作，而是RabbitMQ的扩展。
+```sqlite-sql
+void basicReject(long deliveryTag, boolean requeue) throws IOException;
+void basicNack(long deliveryTag, boolean multiple, boolean requeue) throws IOException;
+```
+各个参数含义：
+- deliveryTag: 消息的编号
+- requeue: 消费者拒绝后，服务端是否将消息重新入队
+- multiple: basicNack，multiple参数设置为true时，表明一次性拒绝多条消息：deliveryTag编号之前的所有未被消费的消息都被拒绝。
 
 ## 一个完整的示例
