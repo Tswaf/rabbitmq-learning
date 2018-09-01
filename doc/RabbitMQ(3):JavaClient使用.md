@@ -65,7 +65,7 @@ Channel channel = connection.createChannel();
 ```
 Channel接口上定义AMQP协议几乎所有的操作。建立好到RabbitQM到连接后，就可以在Channel对象上执行AMQP的操作，如声明队列、交换器、绑定等。
 
-## 创建/删除exchange、queue和binding
+## 操作exchange、queue和binding
 
 ### queue操作
 #### 声明队列
@@ -95,6 +95,7 @@ Channel定义来以下三组方法来声明队列:
     ```
     最后一个queueDeclarePassive方法不是真正对声明队列，而只是检查队列是否存在，如果队列存在则正常返回；否则会抛出一个异常，并且执行该操作对Channel不再
     可用，后续应该创建新的Channel对象使用。
+    
 #### 删除队列
 删除队列有三个方法:
 1. 直接删除
@@ -108,11 +109,12 @@ Channel定义来以下三组方法来声明队列:
     void queueDeleteNoWait(String queue, boolean ifUnused, boolean ifEmpty) throws IOException;
     ```
     指定ifUnused为true，则只有当队列未使用是才会被删除；指定ifEmpty，则只有当队列为空，里面没数据是才会被删除。
-3. 清空队列
+3. 清空队列  
     queuePurge不删除队列，而是清空队列中数据。
     ```
     Queue.PurgeOk queuePurge(String queue) throws IOException;
     ```
+
 ### exchange操作
 #### 声明exchange
 声明exchange的方法也分为三组:
@@ -145,7 +147,7 @@ Channel定义来以下三组方法来声明队列:
     - durable: 是否持久化。持久化的交换器会从RabbitMQ服务重启中恢复，而不用重新创建。
     - autoDelete: 是否自动删除。自动删除的前提是，只是有一队列或交换器与该交换器绑定，之后所有与该交换器绑定的队列/交换器都进行来解绑。
     - internal: 是否为内置交换器。内置交换器是不允许客户端发送消息的。内置交换使用的场景是与其他交换器绑定（RabbitMQ扩展，非AMQP原生功能）
-    - arguments: 其他的结构话参数
+    - arguments: 其他的结构化参数
      
 2. exchangeDeclareNoWait方法
     使用exchangeDeclareNoWait方法声明exchange，方法调用不等待服务端的响应，直接返回，各个参数含义与上面相同。所以声明exchange后立即使用，很可能引发异常。
@@ -182,5 +184,50 @@ Channel定义来以下三组方法来声明队列:
     Exchange.DeleteOk exchangeDelete(String exchange, boolean ifUnused) throws IOException;
     void exchangeDeleteNoWait(String exchange, boolean ifUnused) throws IOException;
     ```
-    ifUnused设置为true是，只有当交换器未被使用是，才会被删除。
+    ifUnused设置为true时，只有当交换器未被使用时，才会被删除。
+    
 ### binding操作
+#### 队列与交换器绑定/解绑
+把队列和交换器绑定起来，使用queueBind方法：
+```
+Queue.BindOk queueBind(String queue, String exchange, String routingKey) throws IOException;
+Queue.BindOk queueBind(String queue, String exchange, String routingKey, Map<String, Object> arguments) throws IOException;
+
+void queueBindNoWait(String queue, String exchange, String routingKey, Map<String, Object> arguments) throws IOException;
+```
+被绑定的队列和交换器的名称分别由参数queue和exchange指定，绑定的key通过参数routingKey指定。arguments指定了其他的结构化参数。  
+对应于绑定方法，有如下两个解绑方法：
+```
+Queue.UnbindOk queueUnbind(String queue, String exchange, String routingKey) throws IOException;
+Queue.UnbindOk queueUnbind(String queue, String exchange, String routingKey, Map<String, Object> arguments) throws IOException;
+```
+#### 交换器与交换器绑定/解绑
+作为RabbitMQ对AMQP的扩展功能，交换器允许和别的交换器绑定起来。这个队列与交换器对绑定在使用上没有太大对不同。可以将交换器E1和E2绑定起来，在将E2和队列
+Q绑定起来，之后生产者向E1发送消息，消息在E1上被路由到E2，再由E2路由到Q。  
+绑定交换器和其他交换器使用如下方法：
+```
+Exchange.BindOk exchangeBind(String destination, String source, String routingKey) throws IOException;
+Exchange.BindOk exchangeBind(String destination, String source, String routingKey, Map<String, Object> arguments) throws IOException;
+
+void exchangeBindNoWait(String destination, String source, String routingKey, Map<String, Object> arguments) throws IOException;
+```
+destination和source参数分别指定目的交换器和源交换器。  
+同样，通过以下方法解绑：
+```
+Exchange.UnbindOk exchangeUnbind(String destination, String source, String routingKey) throws IOException;
+Exchange.UnbindOk exchangeUnbind(String destination, String source, String routingKey, Map<String, Object> arguments) throws IOException;
+
+void exchangeUnbindNoWait(String destination, String source, String routingKey, Map<String, Object> arguments) throws IOException;
+```
+
+何时需要创建队列、交换器以及它们之间的绑定关系呢？这取决与应用程序。在一些复杂应用中，可能需要管理员事先规划好交换器、队列以及绑定关系，并在服务队创建好
+这些资源，客户端直接去使用即可，这样便于统一规划，防止客户端随意创建资源造成错误或是资源浪费；在其他一些应用中，可能由客户端自己创建这些资源并使用。总之，
+这取决于应用本身的规划。
+
+## 发送消息
+
+## 消费消息
+### 推模式
+### 拉模式
+
+## 一个完整的示例
