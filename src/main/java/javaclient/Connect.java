@@ -19,6 +19,5 @@ public class Connect {
         Connection connection = connectionFactory.newConnection();
         Channel channel = connection.createChannel();
 
-        channel.queueDeclare()
     }
 }

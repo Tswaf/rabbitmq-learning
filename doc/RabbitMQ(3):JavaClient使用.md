@@ -65,32 +65,122 @@ Channel channel = connection.createChannel();
 ```
 Channel接口上定义AMQP协议几乎所有的操作。建立好到RabbitQM到连接后，就可以在Channel对象上执行AMQP的操作，如声明队列、交换器、绑定等。
 
-## 创建&删除exchange、queue和binding
+## 创建/删除exchange、queue和binding
 
-### queue
-1.声明队列。Channel定义来以下方法来声明队列:
-```
-Queue.DeclareOk queueDeclare()
-Queue.DeclareOk queueDeclare(String queue, boolean durable, boolean exclusive, boolean autoDelete,Map<String, Object> arguments)
+### queue操作
+#### 声明队列
+Channel定义来以下三组方法来声明队列:
+1. 普通的queueDeclare方，有两个重载版本
 
-void queueDeclareNoWait(String queue, boolean durable, boolean exclusive, boolean autoDelete, Map<String, Object> arguments)
+    ```
+    Queue.DeclareOk queueDeclare()
+    Queue.DeclareOk queueDeclare(String queue, boolean durable, boolean exclusive, boolean autoDelete,Map<String, Object> arguments)
+    ```
+    第一个不带参数的queueDeclare()方法声明一个队列，队列名称由rabbitMQ自动生成，该队列事非持久的、排他的、自动删除的；  
+    
+    第二个方法声明队列，可以指定用户设定的队列属性和参数，是最常用的方法。其中各个参数含义如下：
+    - queue: 队列名称
+    - durable: 队列是否持久话。持久化以为着队列可以从RabbitMQ重启中恢复。
+    - exclusive: 排他性。排他性的队列只对首次声明它的连接（Connection而不是Channel）可见，并将在连接断开是自动删除队列。排他性的队列被首次声明后，
+    其他连接是不允许创建同名队列的，这种类型的队列使用场景很有限。
+    - autoDelete: 队列是否自动删除。自动删除的前提是，至少有一个消费者连接到该队列，而后由断开来连接，队列没有任何消费者时，队列被自动删除。
+2. queueDeclareNoWait方法
+    ```
+    void queueDeclareNoWait(String queue, boolean durable, boolean exclusive, boolean autoDelete, Map<String, Object> arguments)
+    ```
+    使用queueDeclareNoWait方法声明队列时，不等待服务端到响应，直接返回。这种情况下，声明完队列后立即使用可能引发异常。
+3. queueDeclarePassive方法
+    ```
+    Queue.DeclareOk queueDeclarePassive(String queue)
+    ```
+    最后一个queueDeclarePassive方法不是真正对声明队列，而只是检查队列是否存在，如果队列存在则正常返回；否则会抛出一个异常，并且执行该操作对Channel不再
+    可用，后续应该创建新的Channel对象使用。
+#### 删除队列
+删除队列有三个方法:
+1. 直接删除
+    ```
+    Queue.DeleteOk queueDelete(String queue) throws IOException;
+    ```
+    该方法会直接删除掉指定的队列，而不队列对状态，如对是否正在使用、队列中是否还有数据等。
+2. 按需删除
+    ```
+    Queue.DeleteOk queueDelete(String queue, boolean ifUnused, boolean ifEmpty) throws IOException;
+    void queueDeleteNoWait(String queue, boolean ifUnused, boolean ifEmpty) throws IOException;
+    ```
+    指定ifUnused为true，则只有当队列未使用是才会被删除；指定ifEmpty，则只有当队列为空，里面没数据是才会被删除。
+3. 清空队列
+    queuePurge不删除队列，而是清空队列中数据。
+    ```
+    Queue.PurgeOk queuePurge(String queue) throws IOException;
+    ```
+### exchange操作
+#### 声明exchange
+声明exchange的方法也分为三组:
+1. 普通的exchangeDeclare方法
 
-Queue.DeclareOk queueDeclarePassive(String queue)
-```
-第一个不带参数的queueDeclare()方法声明一个队列，队列名称有rabbitMQ自动生成，该队列事非持久的、排他的、自动删除的；  
+    ```
+    Exchange.DeclareOk exchangeDeclare(String exchange, String type) throws IOException;
+    Exchange.DeclareOk exchangeDeclare(String exchange, BuiltinExchangeType type) throws IOException;
+    Exchange.DeclareOk exchangeDeclare(String exchange, String type, boolean durable) throws IOException;
+    Exchange.DeclareOk exchangeDeclare(String exchange, BuiltinExchangeType type, boolean durable) throws IOException;
+    Exchange.DeclareOk exchangeDeclare(String exchange, String type, boolean durable, boolean autoDelete, Map<String, Object> arguments) throws IOException;
+    Exchange.DeclareOk exchangeDeclare(String exchange, BuiltinExchangeType type, boolean durable, boolean autoDelete, Map<String, Object> arguments) throws IOException;
+    Exchange.DeclareOk exchangeDeclare(String exchange,
+                                       String type,
+                                       boolean durable,
+                                       boolean autoDelete,
+                                       boolean internal,
+                                       Map<String, Object> arguments) throws IOException;                                           
+    Exchange.DeclareOk exchangeDeclare(String exchange,
+                                       BuiltinExchangeType type,
+                                       boolean durable,
+                                       boolean autoDelete,
+                                       boolean internal,
+                                       Map<String, Object> arguments) throws IOException;
 
-第二个方法声明队列，可以指定用户设定的队列属性和参数，是最常用的方法。其中各个参数含义如下：
-- queue: 队列名称
-- durable: 队列是否持久话。持久化以为着队列可以从RabbitMQ重启中恢复。
-- exclusive: 排他性。排他性的队列只对首次声明它的连接（Connection而不是Channel）可见，并将在连接断开是自动删除队列。排他性的队列被首次声明后，
-其他连接是不允许创建同名队列的，这种类型的队列使用场景很有限。
-- autoDelete: 队列是否自动删除。自动删除的前提是，至少有一个消费者连接到该队列，而后由断开来连接，队列没有任何消费者时，队列被自动删除。
+    ```
+    各个参数含义如下：
+    - exchange: 交换器的名称
+    - type/BuiltinExchangeType: 交换器的类型
+    - durable: 是否持久化。持久化的交换器会从RabbitMQ服务重启中恢复，而不用重新创建。
+    - autoDelete: 是否自动删除。自动删除的前提是，只是有一队列或交换器与该交换器绑定，之后所有与该交换器绑定的队列/交换器都进行来解绑。
+    - internal: 是否为内置交换器。内置交换器是不允许客户端发送消息的。内置交换使用的场景是与其他交换器绑定（RabbitMQ扩展，非AMQP原生功能）
+    - arguments: 其他的结构话参数
+     
+2. exchangeDeclareNoWait方法
+    使用exchangeDeclareNoWait方法声明exchange，方法调用不等待服务端的响应，直接返回，各个参数含义与上面相同。所以声明exchange后立即使用，很可能引发异常。
 
-使用queueDeclareNoWait方法声明队列时，不等待服务端到响应，直接返回。这种情况下，声明完队列后立即使用可能引发异常；  
-
-最后一个queueDeclarePassive方法不是真正对声明队列，而只是检查队列是否存在，如果队列存在则正常返回；否则会抛出一个异常，并且执行该操作对Channel不再
-可用，后续应该创建新的Channel对象使用。
-
-### 声明exchange
-
-### 声明binding
+    ```
+    void exchangeDeclareNoWait(String exchange,
+                               String type,
+                               boolean durable,
+                               boolean autoDelete,
+                               boolean internal,
+                               Map<String, Object> arguments) throws IOException; 
+    void exchangeDeclareNoWait(String exchange,
+                               BuiltinExchangeType type,
+                               boolean durable,
+                               boolean autoDelete,
+                               boolean internal,
+                               Map<String, Object> arguments) throws IOException; 
+    ```
+    
+3. exchangeDeclarePassive方法
+    与queueDeclarePassive方法类似，exchangeDeclarePassive用来检查exchange是否存在，而不会创建exchange。
+  
+    ```
+    Exchange.DeclareOk exchangeDeclarePassive(String name) throws IOException;     
+    ```
+#### 删除exchange
+与删除队列类似，可以直接删除交换器或是按需删除。
+1. 直接删除
+    ```
+    Exchange.DeleteOk exchangeDelete(String exchange) throws IOException;
+    ```
+2. 按需删除
+    ```
+    Exchange.DeleteOk exchangeDelete(String exchange, boolean ifUnused) throws IOException;
+    void exchangeDeleteNoWait(String exchange, boolean ifUnused) throws IOException;
+    ```
+    ifUnused设置为true是，只有当交换器未被使用是，才会被删除。
+### binding操作
