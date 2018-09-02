@@ -473,3 +473,16 @@ void basicNack(long deliveryTag, boolean multiple, boolean requeue) throws IOExc
     ```
     在IOWrningConsumer，对于reject的消息，其requeue参数设置为true，这样消息被拒绝后，在服务端将重新入队，然后又推送给该消费者，一直循环。实际
     应用中，应该避免这种情况到发生，此处只是为了演示reject的用法。
+    查看队列状态，可以发现warning_queue中始终存在未被确认的消息：
+    ```
+    $ rabbitmqctl list_queues name,durable,messages_ready,messages_unacknowledged,messages
+    Timeout: 60.0 seconds ...
+    Listing queues for vhost / ...
+    error_queue	    true	0	0	0
+    task_queue	    true	0	0	0
+    waring_queue	true	19	0	19
+    ```
+## 总结
+使用java客户端，创建ConnectionFactory对象，设置连接属性后，创建已经到服务到Connection，Connection代表一个Tcp连接，可以在客户端复用，复用方式
+为使用Connection创建Channel。可以根据规划事先在服务端创建好交换器、队列等资源，也可以在Channel上声明这些资源，声明资源时，如果资源不存在则会创建。
+一切资源就绪，生产者在Channel使用basicPublish发送消息到指定到交换器，消费这订阅指定的队列，定义消费消息的回调函数，在Channel上使用basicConsume消费消息。
