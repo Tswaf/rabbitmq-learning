@@ -322,3 +322,154 @@ void basicNack(long deliveryTag, boolean multiple, boolean requeue) throws IOExc
 - multiple: basicNack，multiple参数设置为true时，表明一次性拒绝多条消息：deliveryTag编号之前的所有未被消费的消息都被拒绝。
 
 ## 一个完整的示例
+我们将实现一个简单的告警处理系统。告警分为io告警和file告警两种类型，告警级别有error和warning两种。  
+整体结构如下图所示
+
+![](img/rabbit-example.png)
+
+生产者将告警发送到topic类型的交换器中，交换器更具告警的级别将告警路由分别路由到ErrorQueue和WarningQueue中。消费者ErrorConsumer订阅ErrorQueue
+消费error级别的告警消息；IOWarningConsumer订阅WarningQueue,处理warning级别到告警，正如其名称，IOWarningConsumer只对io类型到告警消费，其他类型
+的告警reject掉。
+
+实现如下：
+- Producer: 随机生产各自类型、级别的告警，并发送到交换器
+    ```java
+    public class Producer {
+        public static String EXCHANEG = "alert_exchange";
+        public static String WARNING_QUEUE = "waring_queue";
+        public static String ERROR_QUEUE = "error_queue";
+    
+        public static void main(String[] args) throws IOException, TimeoutException {
+            //get a default connection and create a channel
+            ConnectionFactory cf = new ConnectionFactory();
+            Connection connection = cf.newConnection();
+            final Channel channel = connection.createChannel();
+    
+            //declare exchange,queues and bindings
+            channel.exchangeDeclare(EXCHANEG, BuiltinExchangeType.TOPIC);
+            channel.queueDeclare(WARNING_QUEUE,true,false,false,null);
+            channel.queueDeclare(ERROR_QUEUE,true,false,false,null);
+            channel.queueBind(WARNING_QUEUE, EXCHANEG,"*.warning");
+            channel.queueBind(ERROR_QUEUE, EXCHANEG,"*.error");
+    
+            while (true){
+                String key = randomRoutingKey();
+                String message = message(key);
+                channel.basicPublish(EXCHANEG,key,null,message.getBytes());
+                System.out.println("Sent > " + message);
+                try {
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    
+        public static String[] keys = new String[]{"io.error","io.warning","file.error","file.warning"};
+    
+        public static String randomRoutingKey(){
+            Random random = new Random();
+            int rand = Math.abs(random.nextInt())%(keys.length);
+            return keys[rand];
+        }
+    
+        public static String message(String key){
+            String message = "Alert ..." + " level:" + key;
+            return message;
+        }
+    }
+    ```
+- ErrorConsumer: 消费error级别到告警
+    ```java 
+    public class ErrorConsumer {
+        public static void main(String[] args) throws IOException, TimeoutException {
+            ConnectionFactory cf = new ConnectionFactory();
+            Connection connection = cf.newConnection();
+            final Channel channel = connection.createChannel();
+    
+            boolean autoAck = false;
+            channel.basicConsume(Producer.ERROR_QUEUE,false,new DefaultConsumer(channel){
+                @Override
+                public void handleDelivery(String consumerTag,
+                                           Envelope envelope,
+                                           AMQP.BasicProperties properties,
+                                           byte[] body) throws IOException{
+                    String message = new String(body);
+                    //consume message
+                    System.out.println("consumed. " + message);
+                    channel.basicAck(envelope.getDeliveryTag(),false);
+                }
+            });
+        }
+    }
+    ```
+- IOWarningConsumer: 消费io类型、warning级别的告警。
+    ```java
+     public class IOWarningConsumer {
+        public static void main(String[] args) throws IOException, TimeoutException {
+            ConnectionFactory cf = new ConnectionFactory();
+            Connection connection = cf.newConnection();
+            final Channel channel = connection.createChannel();
+    
+            boolean autoAck = false;
+            channel.basicConsume(Producer.WARNING_QUEUE,autoAck,new DefaultConsumer(channel){
+                @Override
+                public void handleDelivery(String consumerTag,
+                                           Envelope envelope,
+                                           AMQP.BasicProperties properties,
+                                           byte[] body) throws IOException{
+                    String key = envelope.getRoutingKey();
+                    String message = new String(body);
+                    long deliveryTag = envelope.getDeliveryTag();
+                    if (key.startsWith("io")) { // only consumer io warning messages
+                        //consume message
+                        System.out.println("consumed: " + message);
+                        channel.basicAck(deliveryTag,false);
+    
+                    } else { //reject other messages and requeue them
+                        System.out.println("rejected: " + message);
+                        channel.basicReject(deliveryTag,true);
+                    }
+                }
+            });
+    
+        }
+    }
+    ```
+
+分别启动Producer、ErrorConsumer和IOWarningConsumer。 从输出结果中可以看到: 
+- Producer每隔一秒钟随机生产一条消息:
+    ```
+    Sent > Alert ... level:io.error
+    Sent > Alert ... level:file.warning
+    Sent > Alert ... level:file.error
+    Sent > Alert ... level:io.warning
+    Sent > Alert ... level:file.warning
+    Sent > Alert ... level:io.error
+    Sent > Alert ... level:file.error
+    Sent > Alert ... level:file.error
+    Sent > Alert ... level:io.warning
+    Sent > Alert ... level:file.warning
+    Sent > Alert ... level:file.error
+    ```
+- ErrorConsumer处理了所有error级别的消息:
+    ```
+    consumed. Alert ... level:io.error
+    consumed. Alert ... level:file.error
+    consumed. Alert ... level:io.error
+    consumed. Alert ... level:file.error
+    consumed. Alert ... level:file.error
+    consumed. Alert ... level:file.error
+    ```
+- IOWarningConsumer消费了io类型的warning消息，拒绝了其他消息。
+    ```
+    rejected: Alert ... level:file.warning
+    consumed: Alert ... level:io.warning
+    rejected: Alert ... level:file.warning
+    consumed: Alert ... level:io.warning
+    rejected: Alert ... level:file.warning
+    rejected: Alert... level:file.warning
+    ...
+    ```
+    在IOWrningConsumer，对于reject的消息，其requeue参数设置为true，这样消息被拒绝后，在服务端将重新入队，然后又推送给该消费者，一直循环。实际
+    应用中，应该避免这种情况到发生，此处只是为了演示reject的用法。

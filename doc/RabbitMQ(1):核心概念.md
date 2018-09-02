@@ -52,7 +52,7 @@ direct类型到Exchange，将消息路由到那些BingKey与消息到RoutingKey�
 与direct类型到Exchange不同，topic类型到Exchange采取来更加灵活到路由策略：它将消息路由到BindingKey与消息到RoutingKey相匹配到队列中。其中灵活性
 体现在匹配规则上。
 RoutingKey和BindingKey被定义为"."分割到字符串，如 "red.cat.big","yellow.pig.small"。分割出到每一单位我们称作单词，如"cat"，"pig"等。  
-BindingKey中可以使用两种特殊到单词用于模糊匹配，其中"*"匹配任意一个单词，"#"匹配零或多个任意单词。如"red.*.big"匹配任意以单词"red"开头，以"big"
+BindingKey中可以使用两种特殊到单词用于模糊匹配，其中"\*"匹配任意一个单词，"#"匹配零或多个任意单词。如"red.*.big"匹配任意以单词"red"开头，以"big"
 结尾的三个单词的key("red.pig.big","red.mouse.big"...);"yellow.#"匹配任意以单词"yellow"开头到key("yellow","yellow.tiger.small.ku")。  
 这样，Exchange与Queue绑定时使用带有模糊匹配到BindingKey，即可对消息实现灵活的路由。
 ![](img/rabbit-concept/topic.jpg)
@@ -63,4 +63,4 @@ header类型到Exchange路由规则比较特殊，它不依赖消息到RoutingKe
 一组header属性，发送消息时为消息设置一组header属性，当消息到达Exchange时，将被路由的header属性匹配到队列中。该类型到Exchange性能会比较差，实际
 应用中也很少见。
 
-以上即是Exchange、Queue、Binding、BindingKey和RoutingKey直接到协作关系，也是RabbitMQ消息路由到核心原理。
+以上即是Exchange、Queue、Binding、BindingKey和RoutingKey之间的协作关系，也是RabbitMQ消息路由到核心原理。
