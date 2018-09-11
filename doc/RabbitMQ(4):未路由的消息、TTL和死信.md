@@ -136,5 +136,13 @@ channel.basicPublish(EXCHANGE,"",null,"20s TTL message".getBytes());
 可以在RabbitMQ的Web管理页面或使用rabbitmqctl工具在命令行中看到，队列中到消息刚开时积攒了两条，10秒钟后第一条消息到达TTL未被消费，被从队列中丢弃，队列中
 只剩第二条消息，在过10s，第二条消息也不丢弃。
 ### 队列的TTL
+与消息TTL类型，可以为队列设置TTL。为队列中设置了TTL后，如果TTL时间内队列上没有消费者，或者队列没有被重新声明，那么队列将被服务端自动删除。
+使用basic.QueueDeclare(channel.queueDeclare)声明队列时，通过*x-expires*参数可以设置队列的TTL。  
+声明一个ttl为10s的队列：
 
+```java
+Map<String,Object> qArgs = new HashMap<String, Object>();
+qArgs.put("x-expires",10000);
+channel.queueDeclare(TEMP_QUEUE,false,false,false,qArgs);
+```
 ## 死信
