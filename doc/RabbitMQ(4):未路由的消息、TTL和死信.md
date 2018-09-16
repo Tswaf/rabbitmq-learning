@@ -146,3 +146,26 @@ qArgs.put("x-expires",10000);
 channel.queueDeclare(TEMP_QUEUE,false,false,false,qArgs);
 ```
 ## 死信
+如果消息在队列中到达TTL，将被丢弃。这时候，消息变成死信（dead letter).过期是导致死信的原因之一，在RabbitMQ中，以下情况都会产生死信：
+- 消息过期
+- 消息被消费着拒绝（reject/nack），并且设置requeue参数为false
+- 队列到达最大长度
+
+消息在队列中变成死信默认将被丢弃，为了处理死信，可以使用死信交换器（DLX）。  
+死信交换器可以认为是队列的备胎，当队列中产生死信时，死信被发送到死信交换器，由死信交换器重新路由到与之绑定的队列，这些队列被成为死信队列。  
+声明队列时，可以通过*x-dead-letter-exchange*参数设置该队列的死信交换器，也可以通过policy方式设定队列的死信交换器。
+
+```java
+Map<String,Object> params = new HashMap<String, Object>();
+params.put("x-dead-letter-exchange","dlx-exchange");
+channel.queueDeclare("myqueue",false,false,false,params);       
+```
+这样，当*myquue*队列中产生死信时，死信将被发送到*dlx-exchange*交换器，与它重新路由。
+
+消息到路由键是后生产者发送是设置到，在死信被发送到死信交换器时，我们有机会修改消息到路由键。在声明队列是，指定*x-dead-letter-routing-key*参数即可。
+
+```java
+params.put("x-dead-letter-routing-key","deadKey");
+```
+这样，当死信被发送到死信交换器时，它到路由键变为*deadKey*，后续在死信交换器中将根据该路由键进行路由。通过这种在队列上为死信统一更新路由键到方式，使得在某些
+情况下可以统一将死信路由到指定队列，方便对死信统一处理。
