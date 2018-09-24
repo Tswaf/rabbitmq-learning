@@ -81,7 +81,7 @@ rabbitmq提供了多种集群部署的方式：
     ```
     首先*rabbitmqctl stop_app*会停止rabbitmq服务，然后*rabbitmqctl reset*会重置集群状态，接着将node2加入node1所在集群，最后在启动node2上
     到rabbitmq服务。node3上执行同样到操作。  
-    支持完成后，三个节点已经组成回集群，再次使用*rabbitmqctl cluster_status*命令任意节点上查看集群状态：
+    完成后，三个节点已经组成回集群，再次使用*rabbitmqctl cluster_status*命令任意节点上查看集群状态：
     
     ```
     root@node3:~# rabbitmqctl cluster_status
