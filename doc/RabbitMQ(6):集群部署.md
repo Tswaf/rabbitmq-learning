@@ -9,8 +9,8 @@ echo 'deb http://www.rabbitmq.com/debian/ {distriubtion} main' | sudo tee /etc/a
 sudo apt-get update
 sudo apt-get install rabbitmq-server
 ```
-如上，添加仓库等认证key，更新本地仓库后安装即可。其中{distriubtion}需更加不同的系统版本指定。  
-使用apt-get等工具安装比较快速，会一次性安装erlang等依赖。也可以手动安装erlang后，在安装rabbitmq，这种方式也无多大成本，下载rabbitmq的tar.gz包
+如上，添加仓库等认证key，更新本地仓库后安装即可。其中{distriubtion}需根据不同的系统版本指定。  
+使用apt-get等工具安装比较快速，会一次性安装erlang等依赖。也可以手动安装erlang后，再安装rabbitmq，这种方式也无多大成本，下载rabbitmq的tar.gz包
 后解压即可。   
 rabbitmq安装后，以下为几个比较重要的目录，根据不同的系统和安装方式，目录路径会有所差别：    
 - {rabbitHome}/etc: 配置文件目录，rabbitmq.config文件定义rabbitmq配置
@@ -32,7 +32,7 @@ rabbitmq提供了多种集群部署的方式：
 这里主要介绍使用rabbitmqctl组集群等方式，这种方式在小规模下灵活高效。  
 假设局域网中有node1,node2,node3三个节点，配置rabbitmq集群需要以下几步：
 1. 复制erlang cookie
-    如上所述，rabbitmq允许在erlang虚拟机中，erlang节点需要更加erlang cookie通信，为此需要保证三个节点上等cookie一致。cookie默认位于*/var/lib/rabbitmq/.erlang.cookie*
+    如上所述，rabbitmq运行在erlang虚拟机中，erlang节点需要更加erlang cookie通信，为此需要保证三个节点上的cookie一致。cookie默认位于*/var/lib/rabbitmq/.erlang.cookie*
     目录下，从一个节点上复制拷贝到其他节点即可。
     
     ```
@@ -81,7 +81,7 @@ rabbitmq提供了多种集群部署的方式：
     ```
     首先*rabbitmqctl stop_app*会停止rabbitmq服务，然后*rabbitmqctl reset*会重置集群状态，接着将node2加入node1所在集群，最后在启动node2上
     到rabbitmq服务。node3上执行同样到操作。  
-    完成后，三个节点已经组成回集群，再次使用*rabbitmqctl cluster_status*命令任意节点上查看集群状态：
+    完成后，三个节点已经组成集群，再次使用*rabbitmqctl cluster_status*命令任意节点上查看集群状态：
     
     ```
     root@node3:~# rabbitmqctl cluster_status
